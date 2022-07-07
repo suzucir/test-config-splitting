@@ -1,0 +1,14 @@
+version: 2.1
+
+setup: true
+
+orbs:
+  config-splitting: circle-makotom-orbs/config-splitting@0.0.3
+
+workflows:
+  setup:
+    jobs:
+      # 分割されたコンフィグを選択的に結合して実行
+      - config-splitting/run-modular-configs-selectively:
+          module-list-file: .circleci/subdir-list.txt
+          base-revision: main # check against your desired/default branch

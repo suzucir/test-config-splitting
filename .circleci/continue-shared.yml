@@ -1,0 +1,36 @@
+version: 2.1
+
+executors:
+  default:
+    docker:
+      - image: cimg/base:2021.01
+    shell: /bin/bash -exo pipefail
+    environment:
+      TZ: "JST-9"
+
+jobs:
+  execute:
+    parameters:
+      env_no:
+        type: string
+      region:
+        type: string
+        default: 'ap-southeast-1'
+    executor: default
+    environment:
+      env_no_num: << parameters.env_no >>
+      region: << parameters.region >>
+    steps:
+      - run: |
+          printenv env_no_num
+          printenv region
+
+# dummy workflows
+# in order to validate config
+workflows:
+  no-op:
+    when: false
+    jobs:
+      - execute:
+          env_no: '01_01'
+          region: 'ap-northeast-1'
