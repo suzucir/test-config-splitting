@@ -3,8 +3,192 @@ version: 2.1
 setup: true
 
 orbs:
-  # switch to latest
-  config-splitting: circle-makotom-orbs/config-splitting@0.0.3
+  config-splitting: # @ circle-makotom-orbs/config-splitting@0.0.3
+    version: 2.1
+    description: The config-splitting orb - split your config into modules and combine
+      them on demand!
+    display:
+      home_url: https://makotom.org/
+      source_url: https://github.com/circle-makotom/config-splitting-orb
+    orbs:
+      continuation: circleci/continuation@0.2.0
+    commands:
+      combine-configs:
+        description: Combine designated "modular" configs to a single executable config
+        parameters:
+          config-list-file:
+            description: Path to the file listing configs to combine
+            type: string
+          output:
+            description: Path for the resulting config
+            type: string
+          shared-config-file:
+            description: Path to the config providing shared resources (such as prerequisite
+              jobs and common commands)
+            type: string
+        steps:
+          - run:
+              command: |
+                #!/bin/bash
+
+                set -euo pipefail
+
+                # If `config-list-file` is unavailable, stop this job without continuation
+                if [[ ! -s "${CONFIG_LIST_ORIGINAL}" ]]; then
+                    echo 'Nothing to combine. Halting the job.'
+                    circleci-agent step halt
+                    exit
+                fi
+
+                CONFIG_LIST_MODIFIED=$(mktemp)
+                cat "${CONFIG_LIST_ORIGINAL}" >>"${CONFIG_LIST_MODIFIED}"
+
+                # If `shared-config-file` exists, append it at the end of `config-list-file`
+                if [[ -s "${SHARED_CONFIG_FILE}" ]]; then
+                    echo "${SHARED_CONFIG_FILE}" >>"${CONFIG_LIST_MODIFIED}"
+                fi
+
+                # shellcheck disable=SC2016
+                xargs -a "${CONFIG_LIST_MODIFIED}" yq -y -s 'reduce .[] as $item ({}; . * $item)' | tee "${OUTPUT}"
+              environment:
+                CONFIG_LIST_ORIGINAL: << parameters.config-list-file >>
+                OUTPUT: << parameters.output >>
+                SHARED_CONFIG_FILE: << parameters.shared-config-file >>
+              name: Combine configs
+      prepare:
+        description: Prerequisite steps to utilize this orb
+        steps:
+          - checkout
+          - run:
+              command: pip install yq
+              name: Install yq
+      select-configs:
+        description: Select configs based on changes made onto the repository
+        parameters:
+          base-revision:
+            default: main
+            description: Revision to compare with the current HEAD
+            type: string
+          force-all:
+            default: false
+            description: Emergency valve - forcibly build all the modules
+            type: boolean
+          module-list-file:
+            description: |
+              Path to the file which lists directories to be examined for changes.
+              Each directory must contain a file `.circleci-config-dependencies`, which lists configs to be executed when changes are made on the directory.
+            type: string
+          output:
+            description: Path for the resulting file to list configs
+            type: string
+        steps:
+          - run:
+              command: |
+                #!/bin/bash
+
+                set -euo pipefail
+
+                touch "${OUTPUT}"
+
+                DIFFS=$(
+                    cat \<<EOD
+                $(git diff --name-only "${BASE_REVISION}")
+                $(git diff --name-only HEAD~1 || git ls-tree -r --name-only HEAD)
+                EOD
+                )
+                export DIFFS
+
+                while read -r module; do
+                    # Include if:
+                    #   1)  `force-all` is set to `true`,
+                    #   2)  there is any difference against `base-revision` or `HEAD~1` (the previous commit), or
+                    #   3)  there is no `HEAD~1` (i.e., this is the very first commit for the repo).
+                    if [[ "${FORCE_ALL}" == 'true' ]] || printenv DIFFS | grep -qs "${module}"; then
+                        cat "${module}/${CONFIG_DEPENDENCIES_FILE}" >>"${OUTPUT}"
+                    fi
+                done <"${MODULE_LIST_FILE}"
+
+                sort -u -o "${OUTPUT}" "${OUTPUT}"
+              environment:
+                BASE_REVISION: << parameters.base-revision >>
+                CONFIG_DEPENDENCIES_FILE: .circleci-config-dependencies
+                FORCE_ALL: << parameters.force-all >>
+                MODULE_LIST_FILE: << parameters.module-list-file >>
+                OUTPUT: << parameters.output >>
+              name: Generate the list of modules having changes
+    executors:
+      default:
+        description: The executor used by this orb by default
+        docker:
+          - image: cimg/python:3.9
+    jobs:
+      run-all-modular-configs:
+        description: Combine statically-listed "modular" configs and run the result
+        executor: default
+        parameters:
+          config-list-file:
+            description: Path to the file which lists configs to be combined
+            type: string
+          continuation-config:
+            default: /tmp/continuation-config.yml
+            description: Path to the file the combined config will be saved
+            type: string
+          shared-config-file:
+            default: .circleci/continue-shared.yml
+            description: Path to the config providing shared resources (such as prerequisite
+              jobs and common commands)
+            type: string
+        steps:
+          - prepare
+          - combine-configs:
+              config-list-file: << parameters.config-list-file >>
+              output: << parameters.continuation-config >>
+              shared-config-file: << parameters.shared-config-file >>
+          - continuation/continue:
+              configuration_path: << parameters.continuation-config >>
+      run-modular-configs-selectively:
+        description: Select "modular" configs to include based on file changes and run
+          the selected configs by combining them
+        executor: default
+        parameters:
+          base-revision:
+            default: main
+            description: Revision to compare with the current HEAD
+            type: string
+          config-list-file:
+            default: /tmp/selected-configs.txt
+            description: Path to the file where the list of configs to be combined generated
+            type: string
+          continuation-config:
+            default: /tmp/continuation-config.yml
+            description: Path to the file the combined config will be saved
+            type: string
+          force-all:
+            default: false
+            description: Emergency valve - forcibly build all the modules
+            type: boolean
+          module-list-file:
+            description: Path to the file which lists directories to be examined for changes
+            type: string
+          shared-config-file:
+            default: .circleci/continue-shared.yml
+            description: Path to the config providing shared resources (such as prerequisite
+              jobs and common commands)
+            type: string
+        steps:
+          - prepare
+          - select-configs:
+              base-revision: << parameters.base-revision >>
+              force-all: << parameters.force-all >>
+              module-list-file: << parameters.module-list-file >>
+              output: << parameters.config-list-file >>
+          - combine-configs:
+              config-list-file: << parameters.config-list-file >>
+              output: << parameters.continuation-config >>
+              shared-config-file: << parameters.shared-config-file >>
+          - continuation/continue:
+              configuration_path: << parameters.continuation-config >>
+
 
 workflows:
   setup:
