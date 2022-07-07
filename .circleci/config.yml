@@ -55,6 +55,12 @@ orbs:
                 OUTPUT: << parameters.output >>
                 SHARED_CONFIG_FILE: << parameters.shared-config-file >>
               name: Combine configs
+          - run:
+              command: |
+                cat $OUTPUT
+              environemnt:
+                OUTPUT: << parameters.output >>
+              name: Debug config generated
       prepare:
         description: Prerequisite steps to utilize this orb
         steps:
