@@ -3,7 +3,7 @@ version: 2.1
 setup: true
 
 orbs:
-  config-splitting: # @ circle-makotom-orbs/config-splitting@0.0.6
+  config-splitting: # @ circle-makotom-orbs/config-splitting@0.0.
     version: 2.1
     description: The config-splitting orb - split your config into modules and combine
       them on demand!
