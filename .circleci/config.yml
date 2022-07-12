@@ -4,7 +4,7 @@ setup: true
 
 orbs:
   # switch to latest
-  config-splitting: circle-makotom-orbs/config-splitting@0.0.5
+  config-splitting: circle-makotom-orbs/config-splitting@0.0.3
 
 workflows:
   setup:
