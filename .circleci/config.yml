@@ -13,3 +13,4 @@ workflows:
       - config-splitting/run-modular-configs-selectively:
           module-list-file: .circleci/subdir-list.txt
           base-revision: main # check against your desired/default branch
+          
