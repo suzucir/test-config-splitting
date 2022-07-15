@@ -3,8 +3,8 @@ version: 2.1
 setup: true
 
 orbs:
-  # config-splitting: circle-suzuki/config-author-fixed@0.0.1
-  config-splitting: circle-makotom-orbs/config-splitting@0.0.6
+  config-splitting: circle-suzuki/config-author-fixed@0.0.1
+  # config-splitting: circle-makotom-orbs/config-splitting@0.0.6
 
 workflows:
   setup:
