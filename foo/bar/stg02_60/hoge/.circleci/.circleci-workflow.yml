@@ -2,8 +2,8 @@ workflows:
   foo_bar_stg02_60_hoge_release:
     jobs:
       - execute:
-          env_no: "02"
-          region: 'ap-northeast-1'
+          env_no: "02" # "02_60"
+          region: "ap-northeast-1"
           filters:
             branches:
               only:

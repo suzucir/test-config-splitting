@@ -1,1 +1,2 @@
 foo/bar/stg02_60/hoge
+foo/bar/stg02/hoge

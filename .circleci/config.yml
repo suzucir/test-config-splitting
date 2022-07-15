@@ -3,7 +3,6 @@ version: 2.1
 setup: true
 
 orbs:
-  # switch to latest
   config-splitting: circle-suzuki/config-author-fixed@0.0.1
 
 workflows:
